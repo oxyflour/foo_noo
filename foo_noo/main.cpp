@@ -1,6 +1,6 @@
 #include <thread>
 
-// its wired but we have to include foobar2000 sdk before mongoose header
+// its weird but we have to include this before foobar2000 SDK and libuv
 #include <winsock2.h>
 
 #include "../foobar/foobar2000/SDK/foobar2000.h"
