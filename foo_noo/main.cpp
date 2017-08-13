@@ -36,6 +36,7 @@ void start_node() {
 		"fb_utils.once = fb_events.once.bind(fb_events);"
 		"fb_utils.addListener = fb_events.addListener.bind(fb_events);"
 		"fb_utils.removeListener = fb_events.removeListener.bind(fb_events);"
+		"fb_utils._onmessage = (evt, json) => fb_events.emit(evt, JSON.parse(json));"
 
 		"[process.stdout, process.stderr].forEach(stream => {"
 		"    const write = stream.write;"
@@ -68,6 +69,7 @@ public:
 		std::thread(start_node).detach();
 	}
 	void on_quit() {
+		fb_utils_emit("exit", {});
 	}
 };
 

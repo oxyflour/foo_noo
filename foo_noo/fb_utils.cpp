@@ -60,7 +60,7 @@ void complete_callback(napi_env env, napi_status status, void* data) {
 	napi_value cb;
 	napi_valuetype cb_type;
 	if (napi_get_reference_value(env, async.obj, &obj) == napi_ok &&
-		napi_create_string_utf8(env, "onmessage", strlen("onmessage"), &key) == napi_ok &&
+		napi_create_string_utf8(env, "_onmessage", strlen("_onmessage"), &key) == napi_ok &&
 		napi_get_property(env, obj, key, &cb) == napi_ok &&
 		napi_typeof(env, cb, &cb_type) == napi_ok &&
 		cb_type == napi_function) {
