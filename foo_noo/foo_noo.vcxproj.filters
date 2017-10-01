@@ -18,18 +18,12 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fb_env.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fb_utils.cpp">
+    <ClCompile Include="fb2k.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fb_env.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fb_utils.h">
+    <ClInclude Include="fb2k.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

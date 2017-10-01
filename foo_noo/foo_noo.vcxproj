@@ -156,8 +156,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="fb_env.cpp" />
-    <ClCompile Include="fb_utils.cpp" />
+    <ClCompile Include="fb2k.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -176,13 +175,9 @@
     <ProjectReference Include="..\foobar\pfc\pfc.vcxproj">
       <Project>{ebfffb4e-261d-44d3-b89c-957b31a0bf9c}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\node\node.vcxproj">
-      <Project>{93f00cd2-1ef7-077b-5ab9-908ec137929f}</Project>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fb_env.h" />
-    <ClInclude Include="fb_utils.h" />
+    <ClInclude Include="fb2k.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
