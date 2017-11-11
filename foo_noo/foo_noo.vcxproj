@@ -79,8 +79,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>$(SolutionDir)foobar\foobar2000\shared;$(LibraryPath)</LibraryPath>
-    <IncludePath>$(SolutionDir)node\deps\v8\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)node\deps\v8\include;$(SolutionDir)flac\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -97,7 +96,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>shared.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)foobar\foobar2000\shared\shared.lib;$(SolutionDir)node\Release\node.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy $(targetDir)*.dll D:\programs\foobar2000\user-components\foo_noo\</Command>
@@ -132,7 +131,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>shared.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)foobar\foobar2000\shared\shared.lib;$(SolutionDir)node\Release\node.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy $(targetDir)*.dll D:\programs\foobar2000\user-components\foo_noo\</Command>
@@ -156,6 +155,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="decoder.cpp" />
     <ClCompile Include="fb2k.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
@@ -177,6 +177,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="decoder.h" />
     <ClInclude Include="fb2k.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -21,9 +21,15 @@
     <ClCompile Include="fb2k.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="decoder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fb2k.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="decoder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

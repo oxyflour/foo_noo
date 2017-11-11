@@ -14,50 +14,54 @@
 DECLARE_COMPONENT_VERSION("Foobar2000 NodeJS OO Plugin", "0.0.1", "about message goes here");
 VALIDATE_COMPONENT_FILENAME(COMPONENT_NAME ".dll");
 
-void register_napi(uv_async_t *async) {
-	_register_napi_fb2k();
-}
+char *script =
+"try {\n"
+"	global.fb2k = process._linkedBinding('fb2k')\n"
+
+"	const EventEmitter = require('events')\n"
+"	const evts = new EventEmitter()\n"
+"	fb2k.emit = evts.emit.bind(evts)\n"
+"	fb2k.on = evts.on.bind(evts)\n"
+"	fb2k.once = evts.once.bind(evts)\n"
+"	fb2k.off = evts.removeListener.bind(evts)\n"
+
+"	;[process.stdout, process.stderr].forEach(stream => {\n"
+"	    const write = stream.write\n"
+"	    stream.write = function () {\n"
+"	        write.apply(stream, arguments)\n"
+"	        const args = Array.from(arguments).filter(a => typeof a !== 'function')\n"
+"	        fb2k.log.apply(null, ['[" COMPONENT_NAME "]'].concat(args))\n"
+"	    }\n"
+"	})\n"
+
+"   process.on('uncaughtException', err => console.error(err))\n"
+"   process.on('unhandledRejection', err => console.error(err))\n"
+
+"	const modDir = require('path').dirname(fb2k.dllPath)\n"
+"	try {\n"
+"	    console.log('starting module in', modDir)\n"
+"	    require(modDir)\n"
+"	} catch (err) {\n"
+"	    console.log('startup failed!')\n"
+"	    console.error(err && err.stack)\n"
+"	}\n"
+
+"} catch (err) {\n"
+"	console.error(err)\n"
+"	require('fs').writeFileSync('node-err.log', err && err.stack)\n"
+"}";
 
 void start_node() {
-	uv_async_t async;
-	uv_async_init(uv_default_loop(), &async, register_napi);
-	uv_async_send(&async);
+	_register_napi_fb2k();
 
 	char *path = (char *)core_api::get_my_full_path();
-	char *script =
-		"global.fb2k = process._linkedBinding('fb_utils');"
-
-		"const EventEmitter = require('events');"
-		"const fbEvents = new EventEmitter();"
-		"fb2k._onmessage = (evt, data) => fbEvents.emit(evt, data);"
-		"fb2k.on = fbEvents.on.bind(fbEvents);"
-		"fb2k.off = fbEvents.off.bind(fbEvents);"
-		"fb2k.once = fbEvents.once.bind(fbEvents);"
-
-		"fb2k.dumpLibrary = cb => fb2k.once(fb2k.send('library:dump'), cb)"
-
-		"[process.stdout, process.stderr].forEach(stream => {"
-		"    const write = stream.write;"
-		"    stream.write = function () {"
-		"        write.apply(stream, arguments);"
-		"        const args = Array.from(arguments).filter(a => typeof a !== 'function');"
-		"        fb2k.log.apply(null, ['[" COMPONENT_NAME "]'].concat(args));"
-		"    };"
-		"});"
-		"process.on('uncaughtException', err => console.error(err));"
-
-		"const modDir = require('path').dirname(fb2k.dllPath);"
-		"try {"
-		"    console.log('starting module in', modDir);"
-		"    require(modDir);"
-		"} catch (err) {"
-		"    console.log('startup failed!');"
-		"    console.error(err);"
-		"}";
-
-	char *argv[] = { path, "--inspect", "-e", script };
+	char *argv[] = { path, "-e", script };
 	auto argc = sizeof(argv) / sizeof(char *);
-	console::print("[" COMPONENT_NAME "] starting nodejs [" NODE_VERSION "] ...");
+
+	char options[1024] = { 0 };
+	GetEnvironmentVariableA("NODE_OPTIONS", options, sizeof(options));
+	console::printf("[" COMPONENT_NAME "] starting nodejs [" NODE_VERSION "] (NODE_OPTIONS: '%s')", options);
+
 	node::Start(argc, argv);
 }
 
