@@ -36,6 +36,7 @@ char *script =
 "	})\n"
 
 "	process.on('unhandledRejection', err => console.error(err))\n"
+"	process.on('uncaughtException', err => console.error(err))\n"
 
 "	const modDir = require('path').dirname(fb2k.dllPath)\n"
 "	try {\n"

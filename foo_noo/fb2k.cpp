@@ -1,5 +1,6 @@
 #include <queue>
 #include <thread>
+#include <cmath>
 
 // its wired but we have to include winsock2 sdk before libuv header
 #include <winsock2.h>
@@ -27,7 +28,7 @@ napi_status json_parse(napi_env env, napi_value str, napi_value *result) {
 	return napi_call_function(env, JSON, parse, 1, &str, result);
 }
 
-napi_status console_error(napi_env env, napi_value *exception) {
+napi_status console_error(napi_env env, napi_value exception) {
 	napi_value global;
 	napi_value console;
 	napi_value error;
@@ -35,7 +36,7 @@ napi_status console_error(napi_env env, napi_value *exception) {
 	napi_get_global(env, &global);
 	napi_get_named_property(env, global, "console", &console);
 	napi_get_named_property(env, console, "error", &error);
-	return napi_call_function(env, console, error, 1, exception, &result);
+	return napi_call_function(env, console, error, 1, &exception, &result);
 }
 
 class meta_formatter {
@@ -199,6 +200,30 @@ public:
 	}
 };
 
+static class play_volume : public main_thread_callback {
+public:
+	HANDLE evt;
+	double* time = NULL;
+	virtual void callback_run() {
+		try {
+			if (time != NULL) {
+				static_api_ptr_t<playback_control> pc;
+				if (*time > 0) {
+					pc->set_volume(log(*time) / log(0.5) * -10);
+				}
+				else if (*time == 0) {
+					pc->set_volume(-100);
+				}
+				*time = exp(pc->get_volume() * log(0.5) / -10);
+			}
+		}
+		catch (std::exception &e) {
+			console::error(e.what());
+		}
+		SetEvent(evt);
+	}
+};
+
 const int MAX_LOG_BUFFER = 1024 * 16;
 
 napi_value fb2k_log(napi_env env, napi_callback_info info) {
@@ -317,6 +342,20 @@ napi_value fb2k_send(napi_env env, napi_callback_info info) {
 		CloseHandle(evt);
 		return result;
 	}
+	else if (strcmp(buffer, "renderer:volume") == 0) {
+		auto cb = new service_impl_t<play_volume>();
+		auto evt = cb->evt = CreateEvent(NULL, FALSE, FALSE, NULL);
+		auto str = buffer + strlen(buffer) + 1;
+		double time = str[0] ? atof(str) : -1;
+		cb->time = &time;
+		cbm->add_callback(cb);
+		napi_value result = nullptr;
+		if (WaitForSingleObject(evt, SEND_TIMEOUT) == WAIT_OBJECT_0) {
+			napi_create_double(env, time, &result);
+		}
+		CloseHandle(evt);
+		return result;
+	}
 
 	return nullptr;
 }
@@ -385,7 +424,7 @@ void check_exception(napi_env env) {
 	if (napi_is_exception_pending(env, &hasException) == napi_ok &&
 		hasException &&
 		napi_get_and_clear_last_exception(env, &exception) == napi_ok) {
-		console_error(env, &exception);
+		console_error(env, exception);
 	}
 }
 
