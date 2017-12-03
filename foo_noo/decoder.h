@@ -18,7 +18,7 @@ class decoder {
 	int subsong_index = 0;
 	int wave_bit = 16;
 public:
-	static napi_ref cons_ref;
+	static napi_status register_constructor(napi_env env, const char *name, napi_value *cons);
 	static napi_value New(napi_env env, napi_callback_info info);
 	static void Destroy(napi_env env, void *ptr, void *hint);
 	static napi_value length(napi_env env, napi_callback_info info);

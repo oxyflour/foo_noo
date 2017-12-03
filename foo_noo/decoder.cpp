@@ -45,7 +45,18 @@ static WAVE_FORMAT_HEADER create_wave_header(WORD channels, DWORD srate, DWORD d
 	return wf;
 }
 
-napi_ref decoder::cons_ref;
+static napi_ref cons_ref;
+napi_status decoder::register_constructor(napi_env env, const char *name, napi_value *cons) {
+	napi_property_descriptor properties[] = {
+		{ "length", 0, decoder::length, 0, 0, 0, napi_default, 0 },
+		{ "header", 0, decoder::header, 0, 0, 0, napi_default, 0 },
+		{ "decode", 0, decoder::decode, 0, 0, 0, napi_default, 0 },
+		{ "destroy", 0, decoder::destroy, 0, 0, 0, napi_default, 0 },
+	};
+	napi_define_class(env, name, NAPI_AUTO_LENGTH, decoder::New, nullptr,
+		sizeof(properties) / sizeof(napi_property_descriptor), properties, cons);
+	return napi_create_reference(env, *cons, 1, &cons_ref);
+}
 
 napi_value decoder::New(napi_env env, napi_callback_info info) {
 	auto obj = new decoder();

@@ -11,6 +11,12 @@
 #include "../node/src/node.h"
 #include "../node/src/node_api.h"
 
+struct RENDERER_INFO {
+	char path[4096] = { 0 };
+	double position = 0;
+	double length = 0;
+};
+
 napi_status json_parse(napi_env env, napi_value str, napi_value *result) {
 	napi_value global;
 	napi_value JSON;
@@ -19,6 +25,17 @@ napi_status json_parse(napi_env env, napi_value str, napi_value *result) {
 	napi_get_named_property(env, global, "JSON", &JSON);
 	napi_get_named_property(env, JSON, "parse", &parse);
 	return napi_call_function(env, JSON, parse, 1, &str, result);
+}
+
+napi_status console_error(napi_env env, napi_value *exception) {
+	napi_value global;
+	napi_value console;
+	napi_value error;
+	napi_value result;
+	napi_get_global(env, &global);
+	napi_get_named_property(env, global, "console", &console);
+	napi_get_named_property(env, console, "error", &error);
+	return napi_call_function(env, console, error, 1, exception, &result);
 }
 
 class meta_formatter {
@@ -53,65 +70,84 @@ nlohmann::json meta_to_json(metadb_handle_ptr &item, static_api_ptr_t<library_ma
 	});
 }
 
+struct DUMPED_LIBRARY {
+	std::string jsonText;
+};
+
 static class dump_library : public main_thread_callback {
 public:
-	HANDLE evt = CreateEvent(NULL, FALSE, FALSE, TEXT("library:dump"));
-	std::string jsonText;
+	HANDLE evt;
+	DUMPED_LIBRARY *ri;
 	virtual void callback_run() {
-		static_api_ptr_t<library_manager> lib;
-		pfc::list_t<metadb_handle_ptr> list;
-		lib->get_all_items(list);
-		auto arr = nlohmann::json::array();
-		for (t_size i = 0, n = list.get_count(); i < n; i++) {
-			arr.push_back(meta_to_json(list.get_item(i), lib));
+		try {
+			static_api_ptr_t<library_manager> lib;
+			pfc::list_t<metadb_handle_ptr> list;
+			lib->get_all_items(list);
+			auto arr = nlohmann::json::array();
+			for (t_size i = 0, n = list.get_count(); i < n; i++) {
+				arr.push_back(meta_to_json(list.get_item(i), lib));
+			}
+			if (ri) {
+				ri->jsonText = arr.dump();
+			}
 		}
-		jsonText = arr.dump();
+		catch (std::exception &e) {
+			console::error(e.what());
+		}
 		SetEvent(evt);
 	}
 };
 
 static class play_load : public main_thread_callback {
 public:
-	HANDLE evt = CreateEvent(NULL, FALSE, FALSE, TEXT("renderer:load"));
-	char path[4096];
+	HANDLE evt;
+	char path[4096] = { 0 };
 	double subsong = 0;
 	virtual void callback_run() {
-		static_api_ptr_t<playback_control> pc;
-		pc->stop();
+		try {
+			static_api_ptr_t<playback_control> pc;
+			pc->stop();
 
-		static_api_ptr_t<playlist_manager> plm;
-		plm->queue_flush();
+			static_api_ptr_t<playlist_manager> plm;
+			plm->queue_flush();
 
-		pfc::list_t<metadb_handle_ptr> temp;
-		static_api_ptr_t<playlist_incoming_item_filter> pliif;
-		pliif->process_location(path, temp, false, NULL, NULL, core_api::get_main_window());
+			pfc::list_t<metadb_handle_ptr> temp;
+			static_api_ptr_t<playlist_incoming_item_filter> pliif;
+			pliif->process_location(path, temp, false, NULL, NULL, NULL);
 
-		auto len = temp.get_count();
-		for (auto i = 0; i < len; i++) {
-			auto item = temp.get_item(i);
-			if (item->get_subsong_index() == subsong) {
-				plm->queue_add_item(item);
+			auto len = temp.get_count();
+			for (auto i = 0; i < len; i++) {
+				auto item = temp.get_item(i);
+				if (item->get_subsong_index() == subsong) {
+					plm->queue_add_item(item);
+				}
 			}
-		}
 
-		pc->set_stop_after_current(true);
+			pc->set_stop_after_current(true);
+		}
+		catch (std::exception &e) {
+			console::error(e.what());
+		}
 		SetEvent(evt);
 	}
 };
 
 static class play_query : public main_thread_callback {
 public:
-	HANDLE evt = CreateEvent(NULL, FALSE, FALSE, TEXT("renderer:query"));
-	char path[4096];
-	double position;
-	double length;
+	HANDLE evt;
+	RENDERER_INFO *ri;
 	virtual void callback_run() {
-		static_api_ptr_t<playback_control> pc;
-		metadb_handle_ptr media;
-		if (pc->get_now_playing(media)) {
-			strcpy(path, media->get_path());
-			position = pc->playback_get_position();
-			length = pc->playback_get_length();
+		try {
+			static_api_ptr_t<playback_control> pc;
+			metadb_handle_ptr media;
+			if (ri && pc->get_now_playing(media)) {
+				strcpy(ri->path, media->get_path());
+				ri->position = pc->playback_get_position();
+				ri->length = pc->playback_get_length();
+			}
+		}
+		catch (std::exception &e) {
+			console::error(e.what());
 		}
 		SetEvent(evt);
 	}
@@ -119,31 +155,46 @@ public:
 
 static class play_start : public main_thread_callback {
 public:
-	HANDLE evt = CreateEvent(NULL, FALSE, FALSE, TEXT("renderer:start"));
+	HANDLE evt;
 	virtual void callback_run() {
-		static_api_ptr_t<playback_control> pc;
-		pc->play_or_unpause();
+		try {
+			static_api_ptr_t<playback_control> pc;
+			pc->play_or_unpause();
+		}
+		catch (std::exception &e) {
+			console::error(e.what());
+		}
 		SetEvent(evt);
 	}
 };
 
 static class play_pause : public main_thread_callback {
 public:
-	HANDLE evt = CreateEvent(NULL, FALSE, FALSE, TEXT("renderer:pause"));
+	HANDLE evt;
 	virtual void callback_run() {
-		static_api_ptr_t<playback_control> pc;
-		pc->pause(true);
+		try {
+			static_api_ptr_t<playback_control> pc;
+			pc->pause(true);
+		}
+		catch (std::exception &e) {
+			console::error(e.what());
+		}
 		SetEvent(evt);
 	}
 };
 
 static class play_seek : public main_thread_callback {
 public:
-	HANDLE evt = CreateEvent(NULL, FALSE, FALSE, TEXT("renderer:seek"));
+	HANDLE evt;
 	double time = 0;
 	virtual void callback_run() {
-		static_api_ptr_t<playback_control> pc;
-		pc->playback_seek(time);
+		try {
+			static_api_ptr_t<playback_control> pc;
+			pc->playback_seek(time);
+		}
+		catch (std::exception &e) {
+			console::error(e.what());
+		}
 		SetEvent(evt);
 	}
 };
@@ -157,20 +208,23 @@ napi_value fb2k_log(napi_env env, napi_callback_info info) {
 
 	size_t offset = 0;
 	char buffer[MAX_LOG_BUFFER] = { 0 };
-	for (auto i = 0; i < argc; i++) {
+	for (auto i = 0; i < argc && offset < sizeof(buffer); i++) {
+		if (offset) {
+			buffer[offset++] = ' ';
+		}
 		napi_value arg;
 		size_t len = 0;
-		char str[4096] = { 0 };
 		if (napi_coerce_to_string(env, args[i], &arg) == napi_ok &&
-			napi_get_value_string_utf8(env, arg, str, sizeof(str), &len) == napi_ok &&
-			offset < sizeof(buffer)) {
-			offset += sprintf(buffer + offset, offset == 0 ? "%s" : " %s", str);
+			napi_get_value_string_utf8(env, arg, buffer + offset, sizeof(buffer) - offset, &len) == napi_ok) {
+			offset += len;
 		}
 	}
 	console::print(buffer);
 
 	return nullptr;
 }
+
+const int SEND_TIMEOUT = 30000;
 
 napi_value fb2k_send(napi_env env, napi_callback_info info) {
 	napi_value args[16];
@@ -192,68 +246,76 @@ napi_value fb2k_send(napi_env env, napi_callback_info info) {
 	static_api_ptr_t<main_thread_callback_manager> cbm;
 	if (strcmp(buffer, "library:dump") == 0) {
 		auto cb = new service_impl_t<dump_library>();
+		DUMPED_LIBRARY ri;
+		cb->ri = &ri;
+		auto evt = cb->evt = CreateEvent(NULL, FALSE, FALSE, NULL);
 		cbm->add_callback(cb);
-		if (WaitForSingleObject(cb->evt, 30000) == WAIT_OBJECT_0) {
-			CloseHandle(cb->evt);
+		napi_value result = nullptr;
+		if (WaitForSingleObject(evt, SEND_TIMEOUT) == WAIT_OBJECT_0) {
 			napi_value jsonString;
-			auto jsonText = cb->jsonText;
-			napi_create_string_utf8(env, jsonText.c_str(), jsonText.size(), &jsonString);
-
-			napi_value result;
+			napi_create_string_utf8(env, ri.jsonText.c_str(), ri.jsonText.size(), &jsonString);
 			json_parse(env, jsonString, &result);
-			return result;
 		}
+		CloseHandle(evt);
+		return result;
 	}
 	else if (strcmp(buffer, "renderer:load") == 0) {
 		auto cb = new service_impl_t<play_load>();
+		auto evt = cb->evt = CreateEvent(NULL, FALSE, FALSE, NULL);
 		auto path = buffer + strlen(buffer) + 1;
 		strcpy(cb->path, path);
 		auto subsong = path + strlen(path) + 1;
 		cb->subsong = atoi(subsong);
 		cbm->add_callback(cb);
-		WaitForSingleObject(cb->evt, 30000);
-		CloseHandle(cb->evt);
+		WaitForSingleObject(evt, SEND_TIMEOUT);
+		CloseHandle(evt);
 	}
 	else if (strcmp(buffer, "renderer:play") == 0) {
 		auto cb = new service_impl_t<play_start>();
+		auto evt = cb->evt = CreateEvent(NULL, FALSE, FALSE, NULL);
 		cbm->add_callback(cb);
-		WaitForSingleObject(cb->evt, 30000);
-		CloseHandle(cb->evt);
+		WaitForSingleObject(evt, SEND_TIMEOUT);
+		CloseHandle(evt);
 	}
 	else if (strcmp(buffer, "renderer:pause") == 0) {
 		auto cb = new service_impl_t<play_pause>();
+		auto evt = cb->evt = CreateEvent(NULL, FALSE, FALSE, NULL);
 		cbm->add_callback(cb);
-		WaitForSingleObject(cb->evt, 30000);
-		CloseHandle(cb->evt);
+		WaitForSingleObject(evt, SEND_TIMEOUT);
+		CloseHandle(evt);
 	}
 	else if (strcmp(buffer, "renderer:seek") == 0) {
 		auto cb = new service_impl_t<play_seek>();
+		auto evt = cb->evt = CreateEvent(NULL, FALSE, FALSE, NULL);
 		cb->time = atof(buffer + strlen(buffer) + 1);
 		cbm->add_callback(cb);
-		WaitForSingleObject(cb->evt, 30000);
-		CloseHandle(cb->evt);
+		WaitForSingleObject(evt, SEND_TIMEOUT);
+		CloseHandle(evt);
 	}
 	else if (strcmp(buffer, "renderer:query") == 0) {
 		auto cb = new service_impl_t<play_query>();
+		auto evt = cb->evt = CreateEvent(NULL, FALSE, FALSE, NULL);
+		RENDERER_INFO ri;
+		cb->ri = &ri;
 		cbm->add_callback(cb);
-		if (WaitForSingleObject(cb->evt, 30000) == WAIT_OBJECT_0) {
-			CloseHandle(cb->evt);
-			napi_value result;
+		napi_value result = nullptr;
+		if (WaitForSingleObject(evt, SEND_TIMEOUT) == WAIT_OBJECT_0) {
 			napi_create_object(env, &result);
 
 			napi_value path;
-			napi_create_string_utf8(env, cb->path, strlen(cb->path), &path);
+			napi_create_string_utf8(env, ri.path, strlen(ri.path), &path);
 			napi_set_named_property(env, result, "path", path);
 
 			napi_value position;
-			napi_create_double(env, cb->position, &position);
+			napi_create_double(env, ri.position, &position);
 			napi_set_named_property(env, result, "position", position);
 
 			napi_value length;
-			napi_create_double(env, cb->length, &length);
+			napi_create_double(env, ri.length, &length);
 			napi_set_named_property(env, result, "length", length);
-			return result;
 		}
+		CloseHandle(evt);
+		return result;
 	}
 
 	return nullptr;
@@ -317,6 +379,16 @@ void execute_callback(napi_env env, void* data) {
 	WaitForSingleObject(async.evt, INFINITE);
 }
 
+void check_exception(napi_env env) {
+	auto hasException = false;
+	napi_value exception;
+	if (napi_is_exception_pending(env, &hasException) == napi_ok &&
+		hasException &&
+		napi_get_and_clear_last_exception(env, &exception) == napi_ok) {
+		console_error(env, &exception);
+	}
+}
+
 void complete_callback(napi_env env, napi_status status, void* data) {
 	napi_value obj;
 	napi_value key;
@@ -333,10 +405,15 @@ void complete_callback(napi_env env, napi_status status, void* data) {
 			napi_value callArgs[2];
 			napi_value jsonString;
 			napi_value result;
+			size_t callArgc = sizeof(callArgs) / sizeof(napi_value);
 			if (napi_create_string_utf8(env, item.evt.c_str(), item.evt.size(), callArgs) == napi_ok &&
 				napi_create_string_utf8(env, item.data.c_str(), item.data.size(), &jsonString) == napi_ok &&
-				json_parse(env, jsonString, callArgs + 1) == napi_ok) {
-				napi_call_function(env, obj, cb, sizeof(callArgs) / sizeof(napi_value), callArgs, &result);
+				json_parse(env, jsonString, callArgs + 1) == napi_ok &&
+				napi_call_function(env, obj, cb, callArgc, callArgs, &result) == napi_ok) {
+				// message is successfully handled
+			}
+			else {
+				check_exception(env);
 			}
 			async.queue.pop();
 		}
@@ -369,19 +446,9 @@ napi_value init_fb2k(napi_env env, napi_value exports) {
 		execute_callback, complete_callback, NULL, &async.work);
 	napi_queue_async_work(env, async.work);
 
-	if (1) {
-		napi_property_descriptor properties[] = {
-			{ "length", 0, decoder::length, 0, 0, 0, napi_default, 0 },
-			{ "header", 0, decoder::header, 0, 0, 0, napi_default, 0 },
-			{ "decode", 0, decoder::decode, 0, 0, 0, napi_default, 0 },
-			{ "destroy", 0, decoder::destroy, 0, 0, 0, napi_default, 0 },
-		};
-		napi_value cons;
-		napi_define_class(env, "Decoder", NAPI_AUTO_LENGTH, decoder::New, nullptr,
-			sizeof(properties) / sizeof(napi_property_descriptor), properties, &cons);
-		napi_create_reference(env, cons, 1, &decoder::cons_ref);
-		napi_set_named_property(env, exports, "Decoder", cons);
-	}
+	napi_value cons;
+	decoder::register_constructor(env, "Decoder", &cons);
+	napi_set_named_property(env, exports, "Decoder", cons);
 
 	return exports;
 }

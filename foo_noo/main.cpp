@@ -15,7 +15,6 @@ DECLARE_COMPONENT_VERSION("Foobar2000 NodeJS OO Plugin", "0.0.1", "about message
 VALIDATE_COMPONENT_FILENAME(COMPONENT_NAME ".dll");
 
 char *script =
-"try {\n"
 "	global.fb2k = process._linkedBinding('fb2k')\n"
 
 "	const EventEmitter = require('events')\n"
@@ -25,17 +24,18 @@ char *script =
 "	fb2k.once = evts.once.bind(evts)\n"
 "	fb2k.off = evts.removeListener.bind(evts)\n"
 
+"	const logger = require('fs').createWriteStream('foo_noo.log')\n"
 "	;[process.stdout, process.stderr].forEach(stream => {\n"
 "	    const write = stream.write\n"
 "	    stream.write = function () {\n"
 "	        write.apply(stream, arguments)\n"
+"			logger.write.apply(logger, arguments)\n"
 "	        const args = Array.from(arguments).filter(a => typeof a !== 'function')\n"
 "	        fb2k.log.apply(null, ['[" COMPONENT_NAME "]'].concat(args))\n"
 "	    }\n"
 "	})\n"
 
-"   process.on('uncaughtException', err => console.error(err))\n"
-"   process.on('unhandledRejection', err => console.error(err))\n"
+"	process.on('unhandledRejection', err => console.error(err))\n"
 
 "	const modDir = require('path').dirname(fb2k.dllPath)\n"
 "	try {\n"
@@ -44,12 +44,7 @@ char *script =
 "	} catch (err) {\n"
 "	    console.log('startup failed!')\n"
 "	    console.error(err && err.stack)\n"
-"	}\n"
-
-"} catch (err) {\n"
-"	console.error(err)\n"
-"	require('fs').writeFileSync('node-err.log', err && err.stack)\n"
-"}";
+"	}\n";
 
 void start_node() {
 	_register_napi_fb2k();
