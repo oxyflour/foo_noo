@@ -22,6 +22,7 @@ public:
 	static napi_value New(napi_env env, napi_callback_info info);
 	static void Destroy(napi_env env, void *ptr, void *hint);
 	static napi_value length(napi_env env, napi_callback_info info);
+	static napi_value meta(napi_env env, napi_callback_info info);
 	static napi_value header(napi_env env, napi_callback_info info);
 	static napi_value decode(napi_env env, napi_callback_info info);
 	static napi_value destroy(napi_env env, napi_callback_info info);

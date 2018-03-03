@@ -49,6 +49,7 @@ static napi_ref cons_ref;
 napi_status decoder::register_constructor(napi_env env, const char *name, napi_value *cons) {
 	napi_property_descriptor properties[] = {
 		{ "length", 0, decoder::length, 0, 0, 0, napi_default, 0 },
+		{ "meta", 0, decoder::meta, 0, 0, 0, napi_default, 0 },
 		{ "header", 0, decoder::header, 0, 0, 0, napi_default, 0 },
 		{ "decode", 0, decoder::decode, 0, 0, 0, napi_default, 0 },
 		{ "destroy", 0, decoder::destroy, 0, 0, 0, napi_default, 0 },
@@ -74,16 +75,21 @@ napi_value decoder::New(napi_env env, napi_callback_info info) {
 	}
 	napi_wrap(env, self, obj, Destroy, nullptr, &obj->this_ref);
 
-	abort_callback_dummy cb;
-	obj->input.open_path(NULL, obj->file_path, cb, false, false);
-	obj->input.open_decoding(obj->subsong_index, 0, cb);
-	obj->input.run(obj->chunk, cb);
-	obj->has_first_chunk = true;
+	try {
+		abort_callback_dummy cb;
+		obj->input.open_path(NULL, obj->file_path, cb, false, false);
+		obj->input.open_decoding(obj->subsong_index, 0, cb);
+		obj->input.run(obj->chunk, cb);
+		obj->has_first_chunk = true;
 
-	file_info_impl fi;
-	obj->input.get_info(obj->subsong_index, fi, cb);
-	obj->data_length = (int)(fi.get_length() *
-		obj->chunk.get_sample_rate() * obj->chunk.get_channel_count() * obj->wave_bit / 8);
+		file_info_impl fi;
+		obj->input.get_info(obj->subsong_index, fi, cb);
+		obj->data_length = (int)(fi.get_length() *
+			obj->chunk.get_sample_rate() * obj->chunk.get_channel_count() * obj->wave_bit / 8);
+	}
+	catch (std::exception &e) {
+		napi_throw_error(env, "Decoder", e.what());
+	}
 
 	return self;
 }
@@ -130,6 +136,30 @@ napi_value decoder::header(napi_env env, napi_callback_info info) {
 	else {
 		return nullptr;
 	}
+}
+
+napi_value decoder::meta(napi_env env, napi_callback_info info) {
+	napi_value self;
+	napi_get_cb_info(env, info, nullptr, nullptr, &self, nullptr);
+	decoder *obj;
+	napi_unwrap(env, self, (void **)&obj);
+
+	napi_value result;
+	napi_create_object(env, &result);
+
+	napi_value channel_count;
+	napi_create_int32(env, obj->chunk.get_channel_count(), &channel_count);
+	napi_set_named_property(env, result, "channelCount", channel_count);
+
+	napi_value sample_rate;
+	napi_create_int32(env, obj->chunk.get_sample_rate(), &sample_rate);
+	napi_set_named_property(env, result, "sampleRate", sample_rate);
+
+	napi_value bit_depth;
+	napi_create_int32(env, obj->wave_bit, &bit_depth);
+	napi_set_named_property(env, result, "bitDepth", bit_depth);
+
+	return result;
 }
 
 napi_value decoder::decode(napi_env env, napi_callback_info info) {
